@@ -5,7 +5,7 @@
 This will scrap the data from nextjs doc and save it in separate files in data/nextjs folder.
 
 ```terminal
-ts-node nextjs.dev.ts
+npm run scrap
 ```
 
 ## Create dataBase for store embedding data:
@@ -52,8 +52,13 @@ La librairie tikToken permet de transformer du texte en token compréhensible pa
 
 Add OpenAi key in .env for use the Api for embedding the data.
 
-### Embedding datas:
+### Embedding and tokenise datas:
 
 ```terminal
- ts-node .\embedding.ts --env-file=.env
+ npm run embedding
 ```
+
+This command will do this actions:
+
+- Create array with texts and fileName and save it to a json file (texts.json)
+- tokenized all texts and save it to a json file (textsTokens.json)

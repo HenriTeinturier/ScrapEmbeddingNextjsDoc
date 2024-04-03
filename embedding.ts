@@ -3,6 +3,9 @@ import OpenAI from "openai";
 import dotEnv from "dotenv";
 import fs from "fs/promises";
 import path from "path";
+import { Tiktoken } from "@dqbd/tiktoken";
+import cl100k_base from "@dqbd/tiktoken/encoders/cl100k_base.json";
+
 dotEnv.config();
 
 const dataBaseUrl = process.env.DATABASE_URL;
@@ -18,9 +21,15 @@ const openAi = new OpenAI({
 
 const sql = neon(dataBaseUrl);
 
+const encoding = new Tiktoken(
+  cl100k_base.bpe_ranks,
+  cl100k_base.special_tokens,
+  cl100k_base.pat_str
+);
+
 // -----------
 // Step 1
-// Create array with texts and fileName (Add "https..." to the fileName)
+// Create array with texts and fileName
 // return array and save it to a json file
 // -----------
 
@@ -54,6 +63,56 @@ async function processFiles(folder: string): Promise<TextFile[]> {
   return files;
 }
 
+// -----------
+// Step 2
+// tokenized all texts
+// -----------
+
+type TextFileToken = TextFile & { token: Uint32Array }; // tableau de nombre mais spécifique.
+
+const tiktokenizer = async (files: TextFile[]): Promise<TextFileToken[]> => {
+  const textFileTokens: TextFileToken[] = [];
+
+  for (const file of files) {
+    const token: Uint32Array = encoding.encode(file.text);
+
+    textFileTokens.push({
+      ...file,
+      token,
+    });
+  }
+
+  return textFileTokens;
+};
+
+// 3 shorten tous les textes pour pas qu'ils soient trop grand"
+
+// 4 embed tous les textes
+
+// 5 save nos embeddings dans la base de donnée
+
+async function main() {
+  const FOLDER = "nextjs";
+
+  // Create array with texts and fileName and save it to a json file (texts.json)
+  const texts = await cache_withFile(
+    () => processFiles(FOLDER),
+    "./processed/texts.json"
+  );
+
+  // tokenized all texts  and save it to a json file (textsTokens.json)
+  const textTokens = await cache_withFile(
+    () => tiktokenizer(texts),
+    "./processed/textsTokens.json"
+  );
+}
+
+main();
+
+// -----------
+// Utils
+// -----------
+
 async function cache_withFile<T>(func: () => Promise<T>, filePath: string) {
   try {
     await fs.access(filePath);
@@ -72,22 +131,3 @@ async function cache_withFile<T>(func: () => Promise<T>, filePath: string) {
     return data;
   }
 }
-
-// 2 tokenized tous les textes
-
-// 3 shorten tous les textes pour pas qu'ils soient trop grand"
-
-// 4 embed tous les textes
-
-// 5 save nos embeddings dans la base de donnée
-
-async function main() {
-  const FOLDER = "nextjs";
-
-  const texts = await cache_withFile(
-    () => processFiles(FOLDER),
-    "./processed/texts.json"
-  );
-}
-
-main();
