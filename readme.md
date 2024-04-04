@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS usage (
 ### Commentaires:
 
 ```comment
-La librairie tikToken permet de transformer du texte en token compréhensible par openAi.
+tiktoken library is used to transform text into tokens understandable by openAi. We will use this for calculate how many tokens we need to split the text in order to be able to embed it with openAi.
 ```
 
 [Lien vers npm tiktoken](https://www.npmjs.com/package/@dqbd/tiktoken#nextjs) / [Lien vers le github de tiktoken](https://github.com/dqbd/tiktoken/blob/main/js/README.md)
@@ -62,3 +62,6 @@ This command will do this actions:
 
 - Create array with texts and fileName and save it to a json file (texts.json)
 - tokenized all texts and save it to a json file (textsTokens.json)
+- Split the tokenized text in max 500 tokens and save it to a json file (textsTokensSplited.json)
+- embedding the splited tokenized text and save it to a json file (textsTokensSplitedEmbedding.json)
+- save the embedding data to the database
