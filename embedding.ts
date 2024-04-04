@@ -106,7 +106,7 @@ const tiktokenizer = async (files: TextFile[]): Promise<TextFileToken[]> => {
 
 const MAX_TOKENS = 500;
 
-async function splitTextToMany(text: TextFileToken): Promise<TextFile[]> {
+async function splitTextToMany(text: TextFileToken): Promise<TextFileToken[]> {
   const sentences = text.text
     .split(". ")
     .map((sentence) => ({
@@ -140,7 +140,9 @@ async function splitTextToMany(text: TextFileToken): Promise<TextFile[]> {
       return [...acc, sentence];
     }, [] as { text: string; numberTokens: number }[]);
 
-  const chunks: TextFile[] = [];
+  // console.log("sentences", sentences);
+
+  const chunks: TextFileToken[] = [];
 
   let tokensSoFar = 0;
   let currentChunks: TextFileToken[] = [];
@@ -153,6 +155,7 @@ async function splitTextToMany(text: TextFileToken): Promise<TextFile[]> {
       chunks.push({
         filePath: text.filePath,
         text: chunkText,
+        token: new Uint32Array(encoding.encode(chunkText)),
       });
 
       currentChunks = [];
@@ -162,7 +165,7 @@ async function splitTextToMany(text: TextFileToken): Promise<TextFile[]> {
     currentChunks.push({
       filePath: text.filePath,
       text: sentence.text,
-      token: new Uint32Array(),
+      token: new Uint32Array(encoding.encode(sentence.text)),
     });
 
     tokensSoFar += numberToken;
@@ -174,22 +177,26 @@ async function splitTextToMany(text: TextFileToken): Promise<TextFile[]> {
       chunks.push({
         filePath: text.filePath,
         text: chunkText,
+        token: new Uint32Array(encoding.encode(chunkText)),
       });
     }
   }
 
   return chunks;
+
+  //TODO to delete
+  // return [text];
 }
 
-async function splitTexts(texts: TextFileToken[]): Promise<TextFile[]> {
-  const shortened: TextFile[] = [];
+async function splitTexts(texts: TextFileToken[]): Promise<TextFileToken[]> {
+  const shortened: TextFileToken[] = [];
 
-  let i = 0;
+  // let i = 0;
   for (const file of texts) {
-    if (i < 3) {
-      // console.log("file", file);
-      console.log("legngth ligne 178", file.token.length);
-    }
+    // if (i < 3) {
+    //   // console.log("file", file);
+    //   console.log("legngth ligne 178", file.token.length);
+    // }
     if (file.token.length > MAX_TOKENS) {
       // console.log(
       //   "index",
@@ -198,15 +205,15 @@ async function splitTexts(texts: TextFileToken[]): Promise<TextFile[]> {
       //   Object.keys(file.token).length
       // );
       const chunks = await splitTextToMany(file);
-      if (i < 3) {
-        // console.log("chunks", chunks);
-        // console.log("chunks after split", chunks);
-      }
+      // if (i < 3) {
+      // console.log("chunks", chunks);
+      // console.log("chunks after split", chunks);
+      // }
       shortened.push(...chunks);
     } else {
       shortened.push(file);
     }
-    i += 1;
+    // i += 1;
   }
 
   return shortened;
@@ -238,6 +245,8 @@ async function main() {
     () => splitTexts(textTokens),
     "processed/textsTokensShortened.json"
   );
+
+  console.log("textsTokensShortened", textsTokensShortened);
 }
 
 main();
