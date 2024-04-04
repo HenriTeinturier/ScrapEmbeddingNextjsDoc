@@ -30,7 +30,6 @@ const encoding = new Tiktoken(
 // -----------
 // Step 1
 // Create array with texts and fileName
-// return array and save it to a json file
 // -----------
 
 type TextFile = {
@@ -45,12 +44,7 @@ async function processFiles(folder: string): Promise<TextFile[]> {
 
   const entries = await fs.readdir(folderPath, { withFileTypes: true });
 
-  // let i = 0;
   for (const entry of entries) {
-    // if (i > 2) {
-    //   break;
-    // }
-
     const fullPath = path.join(folderPath, entry.name); //entry.name = "fileName"
 
     if (entry.isDirectory()) {
@@ -63,8 +57,6 @@ async function processFiles(folder: string): Promise<TextFile[]> {
       filePath: entry.name,
       text,
     });
-
-    // i++;
   }
 
   return files;
@@ -75,28 +67,20 @@ async function processFiles(folder: string): Promise<TextFile[]> {
 // tokenized all texts
 // -----------
 
-type TextFileToken = TextFile & { token: Uint32Array }; // tableau de nombre mais spécifique.
+type TextFileToken = TextFile & { token: Uint32Array };
 
 const tiktokenizer = async (files: TextFile[]): Promise<TextFileToken[]> => {
   const textFileTokens: TextFileToken[] = [];
-  // let i = 0;
 
   for (const file of files) {
     const token: Uint32Array = encoding.encode(file.text);
-    // if (i < 2) {
-    //   // console.log("token", token);
-    //   console.log("token create", token);
-    // }
 
     textFileTokens.push({
       ...file,
       token: token,
     });
-
-    // i += 1;
   }
 
-  // console.log("tiktokenizer outbout", textFileTokens[0]);
   return textFileTokens;
 };
 
@@ -187,33 +171,18 @@ async function splitTextToMany(text: TextFileToken): Promise<TextFileToken[]> {
 async function splitTexts(texts: TextFileToken[]): Promise<TextFileToken[]> {
   const shortened: TextFileToken[] = [];
 
-  // let i = 0;
   for (const file of texts) {
-    // if (i < 3) {
-    //   // console.log("file", file);
-    //   console.log("legngth ligne 178", file.token.length);
-    // }
     if (file.token.length > MAX_TOKENS) {
-      // console.log(
-      //   "index",
-      //   i,
-      //   "tokenLenght before split",
-      //   Object.keys(file.token).length
-      // );
       const chunks = await splitTextToMany(file);
-      // if (i < 3) {
-      // console.log("chunks", chunks);
-      // console.log("chunks after split", chunks);
-      // }
       shortened.push(...chunks);
     } else {
       shortened.push(file);
     }
-    // i += 1;
   }
 
   return shortened;
 }
+
 // -----------
 // 4 embed all texts with openai
 // -----------
@@ -239,6 +208,7 @@ async function processEmbeddings(
       embedding: embeddings,
     });
 
+    i += 1;
     console.log(
       "📀 embedding in progress ...",
       file.filePath,
@@ -246,14 +216,53 @@ async function processEmbeddings(
       " / ",
       texts.length
     );
-    i += 1;
   }
 
   console.log("🛟 embeding done");
   return embededs;
 }
 
-// 5 save nos embeddings dans la base de donnée
+// -----------
+// 5  save our embeddings data in the database
+// -----------
+
+async function saveToDatabse(texts: TextFileEmbedding[]) {
+  let totalSave = 0;
+
+  for await (const row of texts) {
+    let { text, filePath, embedding } = row;
+
+    const vectorSize = 1536; // size of vector configured in our database.
+
+    // create a vector of 1536 padded with embeddings data and 0
+    const vectorPadded = new Array(vectorSize).fill(0);
+    vectorPadded.splice(0, embedding.length, ...embedding);
+
+    const tokens = encoding.encode(text);
+    const tokensLength = tokens.length;
+
+    const insertQuery = `
+      INSERT INTO documents (text, n_tokens, file_path, embeddings) values ($1, $2, $3, $4)
+    `;
+
+    await sql(insertQuery, [
+      text,
+      tokensLength,
+      filePath,
+      JSON.stringify(vectorPadded),
+    ]);
+
+    totalSave++;
+    console.log(
+      "📌 Saved to database",
+      filePath,
+      "total saved",
+      totalSave,
+      " / ",
+      texts.length
+    );
+  }
+}
 
 async function main() {
   const FOLDER = "nextjs";
@@ -276,21 +285,14 @@ async function main() {
     "processed/textsTokensShortened.json"
   );
 
-  // let totalToken = 0;
-  // textsTokensShortened.forEach((element) => {
-  //   totalToken += element.token.length;
-  // });
-
-  // console.log("totalToken", totalToken);
-  // console.log("textsTokensShortened", textsTokensShortened);
-
   // Step 4 embed all texts
   const textsEmbeddings: TextFileEmbedding[] = await cache_withFile(
     () => processEmbeddings(textsTokensShortened),
     "processed/textsEmbeddings.json"
   );
 
-  // Step 5 save our embeddings in the database
+  // Step 5 save our embeddings data in the database
+  await saveToDatabse(textsEmbeddings);
 }
 
 main();
