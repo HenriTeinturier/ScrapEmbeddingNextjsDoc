@@ -45,13 +45,12 @@ async function processFiles(folder: string): Promise<TextFile[]> {
 
   const entries = await fs.readdir(folderPath, { withFileTypes: true });
 
-  let i = 0;
+  // let i = 0;
   for (const entry of entries) {
-    //TODO TO DELETE le if: conserver uniquement à l'intérieur
-    i += 1;
-    if (i > 3) {
-      break;
-    }
+    // if (i > 2) {
+    //   break;
+    // }
+
     const fullPath = path.join(folderPath, entry.name); //entry.name = "fileName"
 
     if (entry.isDirectory()) {
@@ -64,6 +63,8 @@ async function processFiles(folder: string): Promise<TextFile[]> {
       filePath: entry.name,
       text,
     });
+
+    // i++;
   }
 
   return files;
@@ -78,21 +79,21 @@ type TextFileToken = TextFile & { token: Uint32Array }; // tableau de nombre mai
 
 const tiktokenizer = async (files: TextFile[]): Promise<TextFileToken[]> => {
   const textFileTokens: TextFileToken[] = [];
-  let i = 0;
+  // let i = 0;
 
   for (const file of files) {
     const token: Uint32Array = encoding.encode(file.text);
-    if (i < 2) {
-      // console.log("token", token);
-      console.log("token create", token);
-    }
+    // if (i < 2) {
+    //   // console.log("token", token);
+    //   console.log("token create", token);
+    // }
 
     textFileTokens.push({
       ...file,
       token: token,
     });
 
-    i += 1;
+    // i += 1;
   }
 
   // console.log("tiktokenizer outbout", textFileTokens[0]);
@@ -140,8 +141,6 @@ async function splitTextToMany(text: TextFileToken): Promise<TextFileToken[]> {
       return [...acc, sentence];
     }, [] as { text: string; numberTokens: number }[]);
 
-  // console.log("sentences", sentences);
-
   const chunks: TextFileToken[] = [];
 
   let tokensSoFar = 0;
@@ -183,9 +182,6 @@ async function splitTextToMany(text: TextFileToken): Promise<TextFileToken[]> {
   }
 
   return chunks;
-
-  //TODO to delete
-  // return [text];
 }
 
 async function splitTexts(texts: TextFileToken[]): Promise<TextFileToken[]> {
@@ -218,8 +214,44 @@ async function splitTexts(texts: TextFileToken[]): Promise<TextFileToken[]> {
 
   return shortened;
 }
+// -----------
+// 4 embed all texts with openai
+// -----------
 
-// 4 embed tous les textes
+type TextFileEmbedding = TextFile & { embedding: number[] };
+
+async function processEmbeddings(
+  texts: TextFileToken[]
+): Promise<TextFileEmbedding[]> {
+  const embededs: TextFileEmbedding[] = [];
+  let i = 0;
+
+  for await (const file of texts) {
+    const result = await openAi.embeddings.create({
+      model: "text-embedding-ada-002",
+      input: file.text,
+      encoding_format: "float",
+    });
+    const embeddings = result.data[0].embedding;
+
+    embededs.push({
+      ...file,
+      embedding: embeddings,
+    });
+
+    console.log(
+      "📀 embedding in progress ...",
+      file.filePath,
+      i,
+      " / ",
+      texts.length
+    );
+    i += 1;
+  }
+
+  console.log("🛟 embeding done");
+  return embededs;
+}
 
 // 5 save nos embeddings dans la base de donnée
 
@@ -238,15 +270,27 @@ async function main() {
     "./processed/textsTokens.json"
   );
 
-  // console.log("textTokens", JSON.parse(textTokens)[0];
-
-  // Step 3 shorten all texts and save it to a json file (shortenedTexts.json)
-  const textsTokensShortened = await cache_withFile(
+  // Step 3 shorten all texts and save it to a json file (shortenedTexts.json) To contains max 500 tokens by text
+  const textsTokensShortened: TextFileToken[] = await cache_withFile(
     () => splitTexts(textTokens),
     "processed/textsTokensShortened.json"
   );
 
-  console.log("textsTokensShortened", textsTokensShortened);
+  // let totalToken = 0;
+  // textsTokensShortened.forEach((element) => {
+  //   totalToken += element.token.length;
+  // });
+
+  // console.log("totalToken", totalToken);
+  // console.log("textsTokensShortened", textsTokensShortened);
+
+  // Step 4 embed all texts
+  const textsEmbeddings: TextFileEmbedding[] = await cache_withFile(
+    () => processEmbeddings(textsTokensShortened),
+    "processed/textsEmbeddings.json"
+  );
+
+  // Step 5 save our embeddings in the database
 }
 
 main();
@@ -255,10 +299,9 @@ main();
 // Utils
 // -----------
 
-async function cache_withFile<T extends (TextFile | TextFileToken)[]>(
-  func: () => Promise<T>,
-  filePath: string
-) {
+async function cache_withFile<
+  T extends (TextFile | TextFileToken | TextFileEmbedding)[]
+>(func: () => Promise<T>, filePath: string) {
   try {
     await fs.access(filePath);
 
