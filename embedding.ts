@@ -45,7 +45,13 @@ async function processFiles(folder: string): Promise<TextFile[]> {
 
   const entries = await fs.readdir(folderPath, { withFileTypes: true });
 
+  let i = 0;
   for (const entry of entries) {
+    //TODO TO DELETE le if: conserver uniquement à l'intérieur
+    i += 1;
+    if (i > 3) {
+      break;
+    }
     const fullPath = path.join(folderPath, entry.name); //entry.name = "fileName"
 
     if (entry.isDirectory()) {
@@ -72,20 +78,139 @@ type TextFileToken = TextFile & { token: Uint32Array }; // tableau de nombre mai
 
 const tiktokenizer = async (files: TextFile[]): Promise<TextFileToken[]> => {
   const textFileTokens: TextFileToken[] = [];
+  let i = 0;
 
   for (const file of files) {
     const token: Uint32Array = encoding.encode(file.text);
+    if (i < 2) {
+      // console.log("token", token);
+      console.log("token create", token);
+    }
 
     textFileTokens.push({
       ...file,
-      token,
+      token: token,
     });
+
+    i += 1;
   }
 
+  // console.log("tiktokenizer outbout", textFileTokens[0]);
   return textFileTokens;
 };
 
-// 3 shorten tous les textes pour pas qu'ils soient trop grand"
+// -----------
+// Step 3
+// shorten all texts"
+// -----------
+
+const MAX_TOKENS = 500;
+
+async function splitTextToMany(text: TextFileToken): Promise<TextFile[]> {
+  const sentences = text.text
+    .split(". ")
+    .map((sentence) => ({
+      text: sentence + ". ",
+      numberTokens: encoding.encode(sentence).length,
+    }))
+    .reduce((acc, sentence) => {
+      // if the sentence is too long, split it by \n
+      if (sentence.numberTokens > MAX_TOKENS) {
+        const sentences = sentence.text.split("\n").map((sentence) => ({
+          text: sentence + "\n",
+          numberTokens: encoding.encode(sentence).length,
+        }));
+
+        // check if new sentences is to long, if it's the case, cut every space
+        const sentencesTooLong = sentences.filter(
+          (sentence) => sentence.numberTokens > MAX_TOKENS
+        );
+
+        if (sentencesTooLong.length > 0) {
+          const word = sentence.text.split(" ").map((sentence) => ({
+            text: sentence + " ",
+            numberTokens: encoding.encode(sentence).length,
+          }));
+
+          return [...acc, ...word];
+        }
+
+        return [...acc, ...sentences];
+      }
+      return [...acc, sentence];
+    }, [] as { text: string; numberTokens: number }[]);
+
+  const chunks: TextFile[] = [];
+
+  let tokensSoFar = 0;
+  let currentChunks: TextFileToken[] = [];
+
+  for (const sentence of sentences) {
+    const numberToken = sentence.numberTokens;
+
+    if (tokensSoFar + numberToken > MAX_TOKENS) {
+      const chunkText = currentChunks.map((c) => c.text).join("");
+      chunks.push({
+        filePath: text.filePath,
+        text: chunkText,
+      });
+
+      currentChunks = [];
+      tokensSoFar = 0;
+    }
+
+    currentChunks.push({
+      filePath: text.filePath,
+      text: sentence.text,
+      token: new Uint32Array(),
+    });
+
+    tokensSoFar += numberToken;
+  }
+
+  if (currentChunks.length > 0) {
+    const chunkText = currentChunks.map((c) => c.text).join("");
+    if (chunkText.length > 100) {
+      chunks.push({
+        filePath: text.filePath,
+        text: chunkText,
+      });
+    }
+  }
+
+  return chunks;
+}
+
+async function splitTexts(texts: TextFileToken[]): Promise<TextFile[]> {
+  const shortened: TextFile[] = [];
+
+  let i = 0;
+  for (const file of texts) {
+    if (i < 3) {
+      // console.log("file", file);
+      console.log("legngth ligne 178", file.token.length);
+    }
+    if (file.token.length > MAX_TOKENS) {
+      // console.log(
+      //   "index",
+      //   i,
+      //   "tokenLenght before split",
+      //   Object.keys(file.token).length
+      // );
+      const chunks = await splitTextToMany(file);
+      if (i < 3) {
+        // console.log("chunks", chunks);
+        // console.log("chunks after split", chunks);
+      }
+      shortened.push(...chunks);
+    } else {
+      shortened.push(file);
+    }
+    i += 1;
+  }
+
+  return shortened;
+}
 
 // 4 embed tous les textes
 
@@ -94,16 +219,24 @@ const tiktokenizer = async (files: TextFile[]): Promise<TextFileToken[]> => {
 async function main() {
   const FOLDER = "nextjs";
 
-  // Create array with texts and fileName and save it to a json file (texts.json)
+  // Step 1 Create array with texts and fileName and save it to a json file (texts.json)
   const texts = await cache_withFile(
     () => processFiles(FOLDER),
     "./processed/texts.json"
   );
 
-  // tokenized all texts  and save it to a json file (textsTokens.json)
-  const textTokens = await cache_withFile(
+  // Step 2 tokenized all texts  and save it to a json file (textsTokens.json)
+  const textTokens: TextFileToken[] = await cache_withFile(
     () => tiktokenizer(texts),
     "./processed/textsTokens.json"
+  );
+
+  // console.log("textTokens", JSON.parse(textTokens)[0];
+
+  // Step 3 shorten all texts and save it to a json file (shortenedTexts.json)
+  const textsTokensShortened = await cache_withFile(
+    () => splitTexts(textTokens),
+    "processed/textsTokensShortened.json"
   );
 }
 
@@ -113,20 +246,36 @@ main();
 // Utils
 // -----------
 
-async function cache_withFile<T>(func: () => Promise<T>, filePath: string) {
+async function cache_withFile<T extends (TextFile | TextFileToken)[]>(
+  func: () => Promise<T>,
+  filePath: string
+) {
   try {
     await fs.access(filePath);
 
     const fileData = await fs.readFile(filePath, "utf-8");
     console.log("🛟 using Cache file");
 
-    return JSON.parse(fileData);
+    const parsedData = JSON.parse(fileData).map((item: any) => {
+      if (item.token && Array.isArray(item.token)) {
+        return { ...item, token: new Uint32Array(item.token) };
+      }
+      return item;
+    });
+
+    return parsedData;
   } catch {
     const data = await func();
-
     console.log("🚀 writing cache file");
 
-    await fs.writeFile(filePath, JSON.stringify(data));
+    const dataToWrite = data.map((item: TextFile | TextFileToken) => {
+      if ("token" in item && item.token instanceof Uint32Array) {
+        return { ...item, token: Array.from(item.token) };
+      }
+      return item;
+    });
+
+    await fs.writeFile(filePath, JSON.stringify(dataToWrite));
 
     return data;
   }
