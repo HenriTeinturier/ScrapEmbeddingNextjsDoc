@@ -88,7 +88,7 @@ const run = async () => {
       .filter((line) => line.trim().length > 0)
       .join("\n");
     const fileName =
-      url.replace(/^https?:\/\//, "").replace(/[^a-z0-9]/gi, "_") + ".txt";
+      url.replace(/^https?:\/\//, "").replace(/[^a-z0-9\-]/gi, "_") + ".txt";
     const filePath = `./data/nextjs/${fileName}`;
     console.log("🚀 Save " + filePath + " " + totalSave + "/" + urls.length);
 
