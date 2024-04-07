@@ -27,6 +27,8 @@ const encoding = new Tiktoken(
   cl100k_base.pat_str
 );
 
+let i = 0;
+
 // -----------
 // Step 1
 // Create array with texts and fileName
@@ -54,7 +56,7 @@ async function processFiles(folder: string): Promise<TextFile[]> {
     const text = await fs.readFile(fullPath, "utf-8");
 
     files.push({
-      filePath: entry.name,
+      filePath: entry.name.replace(".txt", ""),
       text,
     });
   }
@@ -67,7 +69,7 @@ async function processFiles(folder: string): Promise<TextFile[]> {
 // tokenized all texts
 // -----------
 
-type TextFileToken = TextFile & { token: Uint32Array };
+type TextFileToken = TextFile & { token: Uint32Array; tokenLength: number };
 
 const tiktokenizer = async (files: TextFile[]): Promise<TextFileToken[]> => {
   const textFileTokens: TextFileToken[] = [];
@@ -78,6 +80,7 @@ const tiktokenizer = async (files: TextFile[]): Promise<TextFileToken[]> => {
     textFileTokens.push({
       ...file,
       token: token,
+      tokenLength: token.length,
     });
   }
 
@@ -89,87 +92,111 @@ const tiktokenizer = async (files: TextFile[]): Promise<TextFileToken[]> => {
 // shorten all texts"
 // -----------
 
-const MAX_TOKENS = 500;
+const MAX_TOKENS = 1500;
+const MAX_TOKENS_PER_CHUNK = 3600;
 
-async function splitTextToMany(text: TextFileToken): Promise<TextFileToken[]> {
-  const sentences = text.text
-    .split(". ")
-    .map((sentence) => ({
-      text: sentence + ". ",
-      numberTokens: encoding.encode(sentence).length,
-    }))
-    .reduce((acc, sentence) => {
-      // if the sentence is too long, split it by \n
-      if (sentence.numberTokens > MAX_TOKENS) {
-        const sentences = sentence.text.split("\n").map((sentence) => ({
-          text: sentence + "\n",
-          numberTokens: encoding.encode(sentence).length,
-        }));
-
-        // check if new sentences is to long, if it's the case, cut every space
-        const sentencesTooLong = sentences.filter(
-          (sentence) => sentence.numberTokens > MAX_TOKENS
-        );
-
-        if (sentencesTooLong.length > 0) {
-          const word = sentence.text.split(" ").map((sentence) => ({
-            text: sentence + " ",
-            numberTokens: encoding.encode(sentence).length,
-          }));
-
-          return [...acc, ...word];
-        }
-
-        return [...acc, ...sentences];
-      }
-      return [...acc, sentence];
-    }, [] as { text: string; numberTokens: number }[]);
-
-  const chunks: TextFileToken[] = [];
-
-  let tokensSoFar = 0;
-  let currentChunks: TextFileToken[] = [];
-
-  for (const sentence of sentences) {
-    const numberToken = sentence.numberTokens;
-
-    if (tokensSoFar + numberToken > MAX_TOKENS) {
-      const chunkText = currentChunks.map((c) => c.text).join("");
-      chunks.push({
-        filePath: text.filePath,
-        text: chunkText,
-        token: new Uint32Array(encoding.encode(chunkText)),
-      });
-
-      currentChunks = [];
-      tokensSoFar = 0;
-    }
-
-    currentChunks.push({
-      filePath: text.filePath,
-      text: sentence.text,
-      token: new Uint32Array(encoding.encode(sentence.text)),
-    });
-
-    tokensSoFar += numberToken;
-  }
-
-  if (currentChunks.length > 0) {
-    const chunkText = currentChunks.map((c) => c.text).join("");
-    if (chunkText.length > 100) {
-      chunks.push({
-        filePath: text.filePath,
-        text: chunkText,
-        token: new Uint32Array(encoding.encode(chunkText)),
-      });
-    }
-  }
-
-  return chunks;
+interface TextChunk extends TextFile {
+  tokenLength: number;
+}
+interface TextChunk extends TextFile {
+  tokenLength: number;
 }
 
-async function splitTexts(texts: TextFileToken[]): Promise<TextFileToken[]> {
-  const shortened: TextFileToken[] = [];
+async function splitTextToMany(text: TextFile): Promise<TextChunk[]> {
+  const tagRegex = /\[sous-titre\]/g; // Expression régulière pour trouver les balises
+  const filePath = text.filePath;
+
+  // Fonction pour découper le texte en morceaux plus petits
+  function splitText(text: string): TextChunk[] {
+    const chunks: TextChunk[] = [];
+    let startIdx = 0;
+
+    // Rechercher les balises [sous-titre] et découper juste avant
+    let match;
+    while ((match = tagRegex.exec(text)) !== null) {
+      const endIdx = match.index;
+      const chunkText = text.substring(startIdx, endIdx).trim();
+      const chunkTokenLength = encoding.encode(chunkText).length;
+
+      if (chunkTokenLength > 0) {
+        chunks.push({
+          filePath: filePath,
+          text: chunkText,
+          tokenLength: chunkTokenLength,
+        });
+      }
+
+      startIdx = endIdx;
+    }
+
+    // Ajouter le dernier morceau
+    const lastChunkText = text.substring(startIdx).trim();
+    const lastChunkTokenLength = encoding.encode(lastChunkText).length;
+
+    if (lastChunkTokenLength > 0) {
+      chunks.push({
+        filePath: filePath,
+        text: lastChunkText,
+        tokenLength: lastChunkTokenLength,
+      });
+    }
+
+    return chunks;
+  }
+
+  // Découper le texte initial en morceaux plus petits
+  let chunks: TextChunk[] = splitText(text.text);
+  const totalTokenLength = chunks.reduce(
+    (acc, chunk) => acc + chunk.tokenLength,
+    0
+  );
+
+  // Vérifier si le texte initial est inférieur à la limite de tokens globale
+  if (totalTokenLength <= MAX_TOKENS) {
+    return [
+      {
+        filePath: filePath,
+        text: text.text,
+        tokenLength: totalTokenLength,
+      },
+    ];
+  }
+
+  const result: TextChunk[] = [];
+
+  // Boucle pour traiter chaque chunk
+  for (const chunk of chunks) {
+    // Vérifier si le chunk dépasse la limite de tokens par morceau
+    if (chunk.tokenLength > MAX_TOKENS_PER_CHUNK) {
+      // Diviser le chunk en deux parties égales
+      const middleIndex = Math.floor(chunk.text.length / 2);
+      const firstHalfText = chunk.text.substring(0, middleIndex).trim();
+      const secondHalfText = chunk.text.substring(middleIndex).trim();
+      const firstHalfTokenLength = encoding.encode(firstHalfText).length;
+      const secondHalfTokenLength = encoding.encode(secondHalfText).length;
+
+      // Ajouter les deux parties à la liste des résultats
+      result.push({
+        filePath: chunk.filePath,
+        text: firstHalfText,
+        tokenLength: firstHalfTokenLength,
+      });
+      result.push({
+        filePath: chunk.filePath,
+        text: secondHalfText,
+        tokenLength: secondHalfTokenLength,
+      });
+    } else {
+      // Ajouter le chunk tel quel au résultat
+      result.push(chunk);
+    }
+  }
+
+  return result;
+}
+
+async function splitTexts(texts: TextFileToken[]): Promise<TextFile[]> {
+  const shortened: TextFile[] = [];
 
   for (const file of texts) {
     if (file.token.length > MAX_TOKENS) {
@@ -197,7 +224,7 @@ async function processEmbeddings(
 
   for await (const file of texts) {
     const result = await openAi.embeddings.create({
-      model: "text-embedding-ada-002",
+      model: "text-embedding-3-small",
       input: file.text,
       encoding_format: "float",
     });
@@ -232,9 +259,10 @@ async function saveToDatabse(texts: TextFileEmbedding[]) {
   for await (const row of texts) {
     let { text, filePath, embedding } = row;
 
+    // for model text-embedding-3-small and ada v2
     const vectorSize = 1536; // size of vector configured in our database.
 
-    // create a vector of 1536 padded with embeddings data and 0
+    // create a vector of 1536/3072 padded with embeddings data and 0
     const vectorPadded = new Array(vectorSize).fill(0);
     vectorPadded.splice(0, embedding.length, ...embedding);
 
@@ -285,6 +313,10 @@ async function main() {
     "processed/textsTokensShortened.json"
   );
 
+  // Display stats optional
+  // displayTokenLengthStats(textTokens);
+  // displayTokenLengthStats(textsTokensShortened);
+
   // Step 4 embed all texts
   const textsEmbeddings: TextFileEmbedding[] = await cache_withFile(
     () => processEmbeddings(textsTokensShortened),
@@ -300,6 +332,70 @@ main();
 // -----------
 // Utils
 // -----------
+
+interface TextObject {
+  tokenLength: number;
+  filePath: string;
+}
+
+function displayTokenLengthStats(objects: TextObject[]): void {
+  let under500: number = 0;
+  let between500And1000: number = 0;
+  let between1000And1500: number = 0;
+  let between1500And2000: number = 0;
+  let between2000And2500: number = 0;
+  let between2500And3700: number = 0;
+  let above3700: number = 0;
+  let maxToken: number = 0;
+
+  let tokenstotal = 0;
+  objects.forEach((t) => (tokenstotal += t.tokenLength));
+  console.log("total tokens", tokenstotal);
+
+  objects.forEach((obj) => {
+    const tokenLength = obj.tokenLength;
+    if (tokenLength > maxToken) {
+      maxToken = tokenLength;
+    }
+
+    if (tokenLength < 500) {
+      under500++;
+    } else if (tokenLength >= 500 && tokenLength < 1000) {
+      between500And1000++;
+    } else if (tokenLength >= 1000 && tokenLength < 1500) {
+      between1000And1500++;
+    } else if (tokenLength >= 1500 && tokenLength < 2000) {
+      between1500And2000++;
+    } else if (tokenLength >= 2000 && tokenLength < 2500) {
+      between2000And2500++;
+    } else if (tokenLength >= 2500 && tokenLength < 3700) {
+      between2500And3700++;
+    } else {
+      console.log(obj.filePath, tokenLength);
+      above3700++;
+    }
+  });
+
+  console.log("Statistiques sur le nombre de tokens par objet :");
+  console.log(`- Nombre d'objets avec moins de 500 tokens : ${under500}`);
+  console.log(
+    `- Nombre d'objets avec 500 à 1000 tokens : ${between500And1000}`
+  );
+  console.log(
+    `- Nombre d'objets avec 1000 à 1500 tokens : ${between1000And1500}`
+  );
+  console.log(
+    `- Nombre d'objets avec 1500 à 2000 tokens : ${between1500And2000}`
+  );
+  console.log(
+    `- Nombre d'objets avec 2000 à 2500 tokens : ${between2000And2500}`
+  );
+  console.log(
+    `- Nombre d'objets avec 2500 à 3700 tokens : ${between2500And3700}`
+  );
+  console.log(`- Nombre d'objets avec plus de 3700 tokens : ${above3700}`);
+  console.log(`- Nombre maximal de tokens : ${maxToken}`);
+}
 
 async function cache_withFile<
   T extends (TextFile | TextFileToken | TextFileEmbedding)[]
