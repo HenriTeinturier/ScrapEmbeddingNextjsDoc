@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS usage (
 
 this command will do this actions:
 
-- Create array of objetcs with texts and fileName and save it to a json file (texts.json)
+- Create array of objects with texts and fileName and save it to a json file (texts.json)
 - tokenize all texts with tiktoken to know token Number and save it to a json file (textsTokens.json)
 - Split the texts in max 1500 tokens. If split, split according to the subtitles (Tag h2) and save it to a json file (textsTokensSplited.json)
 - embedding all split texts with text-embedding-3-small from openai and save it to a json file (textsTokensSplitedEmbedding.json)
