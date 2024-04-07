@@ -93,6 +93,7 @@ const tiktokenizer = async (files: TextFile[]): Promise<TextFileToken[]> => {
 // -----------
 
 const MAX_TOKENS = 1500;
+const MAX_TOKENS_PER_CHUNK = 3600;
 
 interface TextChunk extends TextFile {
   tokenLength: number;
@@ -102,7 +103,6 @@ interface TextChunk extends TextFile {
 }
 
 async function splitTextToMany(text: TextFile): Promise<TextChunk[]> {
-  const MAX_TOKENS_PER_CHUNK = 3600; // Limite de tokens par morceau
   const tagRegex = /\[sous-titre\]/g; // Expression régulière pour trouver les balises
   const filePath = text.filePath;
 
@@ -224,7 +224,7 @@ async function processEmbeddings(
 
   for await (const file of texts) {
     const result = await openAi.embeddings.create({
-      model: "text-embedding-ada-002",
+      model: "text-embedding-3-small",
       input: file.text,
       encoding_format: "float",
     });
@@ -259,9 +259,10 @@ async function saveToDatabse(texts: TextFileEmbedding[]) {
   for await (const row of texts) {
     let { text, filePath, embedding } = row;
 
+    // for model text-embedding-3-small and ada v2
     const vectorSize = 1536; // size of vector configured in our database.
 
-    // create a vector of 1536 padded with embeddings data and 0
+    // create a vector of 1536/3072 padded with embeddings data and 0
     const vectorPadded = new Array(vectorSize).fill(0);
     vectorPadded.splice(0, embedding.length, ...embedding);
 
@@ -312,16 +313,17 @@ async function main() {
     "processed/textsTokensShortened.json"
   );
 
-  displayTokenLengthStats(textsTokensShortened);
+  // Display stats optional
+  // displayTokenLengthStats(textsTokensShortened);
 
   // Step 4 embed all texts
-  // const textsEmbeddings: TextFileEmbedding[] = await cache_withFile(
-  //   () => processEmbeddings(textsTokensShortened),
-  //   "processed/textsEmbeddings.json"
-  // );
+  const textsEmbeddings: TextFileEmbedding[] = await cache_withFile(
+    () => processEmbeddings(textsTokensShortened),
+    "processed/textsEmbeddings.json"
+  );
 
   // Step 5 save our embeddings data in the database
-  // await saveToDatabse(textsEmbeddings);
+  await saveToDatabse(textsEmbeddings);
 }
 
 main();
