@@ -4,7 +4,7 @@
 
 # Nextjs Doc Scraper
 
-### Scrap datas from nextjs doc:
+## Scrap datas from nextjs doc:
 
 This will scrap the data from nextjs doc with Playwright. Data transformation and cleaning + adding wrappers to make sens of the data for ia with Cheerio. Finally save it in separate files in data/nextjs folder.
 
@@ -24,7 +24,7 @@ npm run scrap
 
 ## Create dataBase for store embedding data:
 
-- On Neon.tech créate a database (Neon because is compatible with vector data) and create a collection for store the data.
+- On Neon.tech create a database (Neon because is compatible with vector data) and create a collection for store the data.
 - add the connection string in DATABASE_URL in .env. Be sure to complete userName and replace \*\*\*\*\*\*\* by password
 - Create Tables with the command SQL in database.sql
 
