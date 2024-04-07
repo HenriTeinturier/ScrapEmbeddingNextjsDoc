@@ -314,6 +314,7 @@ async function main() {
   );
 
   // Display stats optional
+  // displayTokenLengthStats(textTokens);
   // displayTokenLengthStats(textsTokensShortened);
 
   // Step 4 embed all texts

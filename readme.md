@@ -81,3 +81,5 @@ this command will do this actions:
 tiktoken library is used to transform text into tokens. We will use this for calculate how many tokens we need to split the text in order to be able to embed it with openAi.
 
 ⏳ [Link to npm tiktoken](https://www.npmjs.com/package/@dqbd/tiktoken#nextjs) / [Lien vers le github de tiktoken](https://github.com/dqbd/tiktoken/blob/main/js/README.md)
+
+You can uncomment displayTokenLengthStats function if you want to check the token sending statistics before saveToDatabase. In this case, don't forget to comment out saveToDatabase function.
