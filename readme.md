@@ -90,7 +90,7 @@ You can uncomment displayTokenLengthStats function if you want to check the toke
 
 ## Scrap stats:
 
-If you want stats on scrapping datas you cun run this command
+If you want stats on scrapping datas you can run this command
 
 ```terminal
   npm run scrapstat
