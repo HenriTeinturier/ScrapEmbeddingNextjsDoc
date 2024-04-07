@@ -1,3 +1,7 @@
+<head>
+  <link rel="stylesheet" type="text/css" href="./readme.css">
+</head>
+
 # Nextjs Doc Scraper
 
 ### Scrap datas from nextjs doc:
@@ -8,13 +12,13 @@ This will scrap the data from nextjs doc with Playwright. Data transformation an
 npm run scrap
 ```
 
-<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px">
-  <img src="https://playwright.dev/img/playwright-logo.svg" alt="Description de l'image" style="max-width: 40px;">
+<div class="custom-container">
+  <img src="https://playwright.dev/img/playwright-logo.svg" alt="Description de l'image">
   <a href="https://playwright.dev/">Link to Playwright</a>
 </div>
 
-<div style="display: flex; align-items: center; gap: 8px">
-  <img src="https://cheerio.js.org/img/orange-c.svg" alt="Description de l'image" style="max-width: 30px;">
+<div class="custom-container">
+  <img src="https://cheerio.js.org/img/orange-c.svg" alt="Description de l'image" >
   <a href="https://cheerio.js.org/">Link to npm Cheerio</a>
 </div>
 
@@ -50,8 +54,8 @@ CREATE TABLE IF NOT EXISTS usage (
 );
 ```
 
-<div style="display: flex; align-items: center; gap: 8px">
-  <img src="https://neon.tech/_next/static/svgs/e9de8fc7653111a1423e0d227c0c5e9f.svg" alt="Description de l'image" style="max-width: 70px;">
+<div class="custom-container">
+  <img src="https://neon.tech/_next/static/svgs/e9de8fc7653111a1423e0d227c0c5e9f.svg" alt="Description de l'image">
   <a href="https://neon.tech/">Link to Neon</a>
 </div>
 
@@ -59,8 +63,8 @@ CREATE TABLE IF NOT EXISTS usage (
 
 - Add OpenAi key in .env for use the Api for embedding the data.
 
-<div style="display: flex; align-items: center; gap: 8px">
-  <img src="https://static.vecteezy.com/system/resources/previews/022/227/364/non_2x/openai-chatgpt-logo-icon-free-png.png" alt="Description de l'image" style="max-width: 30px;">
+<div class="custom-container">
+  <img src="https://static.vecteezy.com/system/resources/previews/022/227/364/non_2x/openai-chatgpt-logo-icon-free-png.png" alt="Description de l'image" >
   <a href="https://platform.openai.com/overview">Link openAi</a>
 </div>
 
