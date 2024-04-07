@@ -83,3 +83,11 @@ tiktoken library is used to transform text into tokens. We will use this for cal
 ⏳ [Link to npm tiktoken](https://www.npmjs.com/package/@dqbd/tiktoken#nextjs) / [Lien vers le github de tiktoken](https://github.com/dqbd/tiktoken/blob/main/js/README.md)
 
 You can uncomment displayTokenLengthStats function if you want to check the token sending statistics before saveToDatabase. In this case, don't forget to comment out saveToDatabase function.
+
+## Scrap stats:
+
+If you want stats on scrapping datas you cun run this command
+
+```terminal
+  npm run scrapstat
+```
