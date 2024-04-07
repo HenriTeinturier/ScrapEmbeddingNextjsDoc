@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "scrap": "ts-node nextjs.dev.ts",
+    "scrapstat": "ts-node scrapstat.ts",
     "embedding": "ts-node .\\embedding.ts --env-file=.env",
     "init-Neon-Database": "ts-node runPsql.ts"
   },
