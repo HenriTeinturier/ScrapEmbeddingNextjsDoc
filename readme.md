@@ -1,5 +1,5 @@
 <head>
-  <link rel="stylesheet" type="text/css" href="./readme.css">
+  <link rel="stylesheet" type="text/css" href="readme.css">
 </head>
 
 # Nextjs Doc Scraper
@@ -13,12 +13,12 @@ npm run scrap
 ```
 
 <div class="custom-container">
-  <img src="https://playwright.dev/img/playwright-logo.svg" alt="Description de l'image">
+  <img src="https://playwright.dev/img/playwright-logo.svg" alt="Description de l'image" width='25'>
   <a href="https://playwright.dev/">Link to Playwright</a>
 </div>
 
 <div class="custom-container">
-  <img src="https://cheerio.js.org/img/orange-c.svg" alt="Description de l'image" >
+  <img src="https://cheerio.js.org/img/orange-c.svg" alt="Description de l'image" width='25' >
   <a href="https://cheerio.js.org/">Link to npm Cheerio</a>
 </div>
 
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS usage (
 ```
 
 <div class="custom-container">
-  <img src="https://neon.tech/_next/static/svgs/e9de8fc7653111a1423e0d227c0c5e9f.svg" alt="Description de l'image">
+  <img src="https://neon.tech/_next/static/svgs/e9de8fc7653111a1423e0d227c0c5e9f.svg" alt="Description de l'image" width='25'>
   <a href="https://neon.tech/">Link to Neon</a>
 </div>
 
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS usage (
 - Add OpenAi key in .env for use the Api for embedding the data.
 
 <div class="custom-container">
-  <img src="https://static.vecteezy.com/system/resources/previews/022/227/364/non_2x/openai-chatgpt-logo-icon-free-png.png" alt="Description de l'image" >
+  <img src="https://static.vecteezy.com/system/resources/previews/022/227/364/non_2x/openai-chatgpt-logo-icon-free-png.png" alt="Description de l'image" width='25' >
   <a href="https://platform.openai.com/overview">Link openAi</a>
 </div>
 
