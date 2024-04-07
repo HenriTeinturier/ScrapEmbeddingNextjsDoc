@@ -27,6 +27,8 @@ const encoding = new Tiktoken(
   cl100k_base.pat_str
 );
 
+let i = 0;
+
 // -----------
 // Step 1
 // Create array with texts and fileName
@@ -54,9 +56,11 @@ async function processFiles(folder: string): Promise<TextFile[]> {
     const text = await fs.readFile(fullPath, "utf-8");
 
     files.push({
-      filePath: entry.name,
+      filePath: entry.name.replace(".txt", ""),
       text,
     });
+
+    i++;
   }
 
   return files;
@@ -274,25 +278,25 @@ async function main() {
   );
 
   // Step 2 tokenized all texts  and save it to a json file (textsTokens.json)
-  const textTokens: TextFileToken[] = await cache_withFile(
-    () => tiktokenizer(texts),
-    "./processed/textsTokens.json"
-  );
+  // const textTokens: TextFileToken[] = await cache_withFile(
+  //   () => tiktokenizer(texts),
+  //   "./processed/textsTokens.json"
+  // );
 
   // Step 3 shorten all texts and save it to a json file (shortenedTexts.json) To contains max 500 tokens by text
-  const textsTokensShortened: TextFileToken[] = await cache_withFile(
-    () => splitTexts(textTokens),
-    "processed/textsTokensShortened.json"
-  );
+  // const textsTokensShortened: TextFileToken[] = await cache_withFile(
+  //   () => splitTexts(textTokens),
+  //   "processed/textsTokensShortened.json"
+  // );
 
   // Step 4 embed all texts
-  const textsEmbeddings: TextFileEmbedding[] = await cache_withFile(
-    () => processEmbeddings(textsTokensShortened),
-    "processed/textsEmbeddings.json"
-  );
+  // const textsEmbeddings: TextFileEmbedding[] = await cache_withFile(
+  //   () => processEmbeddings(textsTokensShortened),
+  //   "processed/textsEmbeddings.json"
+  // );
 
   // Step 5 save our embeddings data in the database
-  await saveToDatabse(textsEmbeddings);
+  // await saveToDatabse(textsEmbeddings);
 }
 
 main();
